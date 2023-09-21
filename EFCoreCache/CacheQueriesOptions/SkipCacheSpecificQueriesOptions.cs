@@ -1,0 +1,20 @@
+﻿namespace EFCoreCache.CacheQueriesOptions
+{
+    public class SkipCacheSpecificQueriesOptions : CacheAllQueriesOptions
+    {
+        /// <summary>
+        ///     CacheAllQueries Options
+        /// </summary>
+        public SkipCacheSpecificQueriesOptions(IList<Type>? entityTypes) => EntityTypes = entityTypes;
+
+        /// <summary>
+        ///     Given entity types to cache
+        /// </summary>
+        public IList<Type>? EntityTypes { get; }
+
+        /// <summary>
+        ///     Given table names to cache
+        /// </summary>
+        public IEnumerable<string>? TableNames { set; get; }
+    }
+}

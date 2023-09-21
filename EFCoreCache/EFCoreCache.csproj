@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>1.0.0</Version>
+    <Authors>Tom Lee</Authors>
+    <Company>Conexus AS</Company>
+    <Copyright>Copyright (c) 2023 Tom Lee</Copyright>
+    <PackageProjectUrl>https://github.com/NamNguyen09/cx-cache</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/NamNguyen09/cx-cache</RepositoryUrl>
+    <PackageTags>Redis;SecondLevelCache;EFCore</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EasyCaching.Core" Version="1.9.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.22" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.22" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="6.0.22" />
+    <PackageReference Include="NeoSmart.AsyncLock" Version="3.2.1" />
+    <PackageReference Include="System.Memory.Data" Version="7.0.0" />
+  </ItemGroup>
+
+</Project>
