@@ -15,3 +15,4 @@
 *.user
 /EFCoreCache/bin
 /EFCoreCache/obj
+/EFCoreCache/EFCoreCache.1.0.0.nupkg
