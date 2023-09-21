@@ -5,9 +5,9 @@ using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace EFCoreCache.RedisCaches;
-
 public class DataDistributedCache : IDataDistributedCache
 {
+    private readonly IConnectionMultiplexer _connectionMultiplexer;
     private readonly IDatabase _redisDatabase;
     private readonly string _prefix;
     private readonly string _entityCachePrefix;
@@ -20,6 +20,7 @@ public class DataDistributedCache : IDataDistributedCache
         DistributedCacheEntryOptions options,
         ILogger<DataDistributedCache> logger)
     {
+        _connectionMultiplexer = connectionMultiplexer;
         _redisDatabase = connectionMultiplexer.GetDatabase();
         _prefix = cacheKeyPrefix;
         _entityCachePrefix = entityCachePrefix;
@@ -32,7 +33,7 @@ public class DataDistributedCache : IDataDistributedCache
     {
         return _redisDatabase.StringGet(key);
     }
-    public bool GetItem(string key, out object value)
+    public bool GetItem(string key, out object? value)
     {
         value = null;
         var (hashed, hashedKey) = HashKey(key);
@@ -288,33 +289,35 @@ public class DataDistributedCache : IDataDistributedCache
             _logger.LogError(string.Format("{0} - isHashedKey='{1}': {2} {3}", ex.GetType().FullName, hashed, ex.Message, stackTrace));
         }
     }
-    public void ClearAllCache()
+    public void ClearAllCache(string? pattern)
     {
-        ////try
-        ////{
-        ////    var database = Connection.GetDatabase();
-        ////    var endpoints = Connection.GetEndPoints(true);
-        ////    foreach (var endpoint in _redisDatabase)
-        ////    {
-        ////        var server = Connection.GetServer(endpoint);
-        ////        switch (database.Database)
-        ////        {
-        ////            case 0:
-        ////                var keys = server.Keys(pattern: EFCachePrefix + "*").ToArray();
-        ////                if (keys.Any()) database.KeyDeleteAsync(keys);
-        ////                break;
-        ////            default:
-        ////                //Clear cache by DatabaseId
-        ////                server.FlushDatabaseAsync(database.Database);
-        ////                break;
-        ////        }
-        ////    }
-        ////    _redisDatabase.remo
-        ////}
-        ////catch (Exception exception)
-        ////{
-        ////    Logger.Error("Clear EFCache failed!", exception);
-
-        ////}
+        try
+        {
+            var endpoints = _connectionMultiplexer.GetEndPoints(true);
+            foreach (var endpoint in endpoints)
+            {
+                if (endpoint == null) continue;
+                var server = _connectionMultiplexer.GetServer(endpoint);
+                if (!string.IsNullOrWhiteSpace(pattern))
+                {
+                    var keys = server.Keys(_redisDatabase.Database, pattern, 1000).ToArray();
+                    if (keys.Any()) _redisDatabase.KeyDeleteAsync(keys);
+                }
+                else if (_redisDatabase.Database == 0)
+                {
+                    var keys = server.Keys(_redisDatabase.Database, _prefix + "*", 1000).ToArray();
+                    if (keys.Any()) _redisDatabase.KeyDeleteAsync(keys);
+                }
+                else
+                {
+                    //Clear cache by DatabaseId
+                    server.FlushDatabaseAsync(_redisDatabase.Database);
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError("Clear EFCache failed!", exception);
+        }
     }
 }
