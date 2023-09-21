@@ -29,6 +29,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.22" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="6.0.22" />
     <PackageReference Include="NeoSmart.AsyncLock" Version="3.2.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Memory.Data" Version="7.0.0" />
   </ItemGroup>
 

@@ -2,6 +2,7 @@
 using System.Text;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using StackExchange.Redis;
 
 namespace EFCoreCache.RedisCaches;
@@ -13,7 +14,6 @@ public class DataDistributedCache : IDataDistributedCache
     private readonly string _entityCachePrefix;
     private readonly DistributedCacheEntryOptions _options;
     private readonly ILogger<DataDistributedCache> _logger;
-    private readonly BinarySerializer _serializer;
 
     public DataDistributedCache(IConnectionMultiplexer connectionMultiplexer,
         string cacheKeyPrefix, string entityCachePrefix,
@@ -26,7 +26,6 @@ public class DataDistributedCache : IDataDistributedCache
         _entityCachePrefix = entityCachePrefix;
         _options = options;
         _logger = logger;
-        _serializer = new BinarySerializer();
     }
 
     public byte[] Get(string key)
@@ -42,8 +41,8 @@ public class DataDistributedCache : IDataDistributedCache
             var cachedData = _redisDatabase.StringGet(hashedKey);
             if (!string.IsNullOrEmpty(cachedData))
             {
-                var entry = _serializer.Deserialize<CacheEntry>(cachedData);
-                value = entry.Value;
+                var entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
+                value = entry ?? null;
                 return true;
             }
             return false;
@@ -76,7 +75,7 @@ public class DataDistributedCache : IDataDistributedCache
             }
 
             var cacheEntry = new CacheEntry(value, entitySets);
-            var data = _serializer.Serialize(cacheEntry);
+            var data = JsonConvert.SerializeObject(cacheEntry);
             _redisDatabase.StringSetAsync(hashedKey, data, expiration);
         }
         catch (Exception ex)
@@ -275,7 +274,7 @@ public class DataDistributedCache : IDataDistributedCache
         try
         {
             var data = _redisDatabase.StringGet(hashedKey);
-            CacheEntry entry = _serializer.Deserialize<CacheEntry>(data);
+            CacheEntry? entry = JsonConvert.DeserializeObject<CacheEntry>(data);
             if (entry == null) return;
             _redisDatabase.KeyDeleteAsync(hashedKey);
             foreach (var set in entry.EntitySets)
