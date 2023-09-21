@@ -13,6 +13,7 @@
     <RepositoryUrl>https://github.com/NamNguyen09/cx-cache</RepositoryUrl>
     <PackageTags>Redis;SecondLevelCache;EFCore</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
