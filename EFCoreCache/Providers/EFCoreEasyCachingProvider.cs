@@ -20,11 +20,10 @@ public class EFCoreEasyCachingProvider : IEFCoreCacheServiceProvider
     /// <summary>
     ///     Using IMemoryCache as a cache service.
     /// </summary>
-    public EFCoreEasyCachingProvider(
-        IOptions<EFCoreCacheSettings> cacheSettings,
-        IServiceProvider serviceProvider,
-        IEFCoreDebugLogger logger,
-        ILogger<EFCoreEasyCachingProvider> easyCachingCoreProviderLogger)
+    public EFCoreEasyCachingProvider(IOptions<EFCoreCacheSettings> cacheSettings,
+                                    IServiceProvider serviceProvider,
+                                    IEFCoreDebugLogger logger,
+                                    ILogger<EFCoreEasyCachingProvider> easyCachingCoreProviderLogger)
     {
         if (cacheSettings == null)
         {

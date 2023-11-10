@@ -100,9 +100,10 @@ public class EFCoreCacheOptions
     ///     You can introduce a custom IEFCacheServiceProvider to be used as the CacheProvider.
     /// </summary>
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
-    public EFCoreCacheOptions UseCustomCacheProvider<T>() where T : IEFCoreCacheServiceProvider
+    public EFCoreCacheOptions UseCustomCacheProvider<T>(string providerName) where T : IEFCoreCacheServiceProvider
     {
         Settings.CacheProvider = typeof(T);
+        Settings.ProviderName = providerName;
         return this;
     }
 
@@ -114,9 +115,11 @@ public class EFCoreCacheOptions
     /// <param name="timeout">The expiration timeout.</param>
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
     public EFCoreCacheOptions UseCustomCacheProvider<T>(CacheExpirationMode expirationMode,
-                                                        TimeSpan timeout) where T : IEFCoreCacheServiceProvider
+                                                        TimeSpan timeout, 
+                                                        string providerName) where T : IEFCoreCacheServiceProvider
     {
         Settings.CacheProvider = typeof(T);
+        Settings.ProviderName = providerName;
         Settings.CachableQueriesOptions = new CachableQueriesOptions
                                           {
                                               ExpirationMode = expirationMode,
