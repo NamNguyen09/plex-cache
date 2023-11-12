@@ -17,6 +17,8 @@ public class EFCoreCachePolicyParser: IEFCoreCachePolicyParser
 
     private static readonly HashSet<string> _nonDeterministicFunctions = new(StringComparer.OrdinalIgnoreCase)
                                                                          {
+                                                                             "SELECT 1",
+                                                                             "OBJECT_ID",
                                                                              "NEWID()",
                                                                              "GETDATE()",
                                                                              "GETUTCDATE()",
@@ -27,12 +29,13 @@ public class EFCoreCachePolicyParser: IEFCoreCachePolicyParser
                                                                              "CURRENT_TIMESTAMP()",
                                                                              "HOST_NAME()",
                                                                              "USER_NAME()",
-                                                                             "NOW()",
+                                                                             "NOW()",                                                                           
                                                                              "getguid()",
                                                                              "uuid_generate_v4()",
                                                                              "current_timestamp",
                                                                              "current_date",
                                                                              "current_time",
+                                                                             "MigrationId"
                                                                          };
 
     private readonly EFCoreCacheSettings _cacheSettings;
@@ -116,7 +119,7 @@ public class EFCoreCachePolicyParser: IEFCoreCachePolicyParser
             return null;
         }
 
-        if (shouldSkipCachingCommands(commandText))
+        if (ShouldSkipCachingCommands(commandText))
         {
             return null;
         }
@@ -133,7 +136,7 @@ public class EFCoreCachePolicyParser: IEFCoreCachePolicyParser
         return efCachePolicy;
     }
 
-    private bool shouldSkipCachingCommands(string commandText)
+    private bool ShouldSkipCachingCommands(string commandText)
     {
         var result = _cacheSettings.SkipCachingCommands != null && _cacheSettings.SkipCachingCommands(commandText);
         if (result && _logger.IsLoggerEnabled)

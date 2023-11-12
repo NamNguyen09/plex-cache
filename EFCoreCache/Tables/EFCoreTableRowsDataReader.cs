@@ -2,6 +2,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 
 namespace EFCoreCache.Tables;
@@ -537,6 +538,11 @@ public class EFCoreTableRowsDataReader : DbDataReader
             {
                 return (T)enumerable;
             }
+        }
+
+        if (expectedValueType == ByteArrayType && actualValueType == StringType)
+        {
+            return (T)Convert.ChangeType(Encoding.ASCII.GetBytes(Convert.ToString(value) ?? ""), typeof(T), CultureInfo.InvariantCulture);
         }
 
 #if NET8_0 || NET7_0 || NET6_0 || NET5_0 || NETCORE3_1

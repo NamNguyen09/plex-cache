@@ -3,6 +3,7 @@ using EFCoreCache.Hashes;
 using EFCoreCache.Interfaces;
 using EFCoreCache.Processors;
 using EFCoreCache.Providers;
+using EFCoreCache.RedisCaches;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -21,10 +22,8 @@ namespace EFCoreCache.Extensions
             }
 
             services.AddMemoryCache();
-            services.AddMemoryCache();
             services.TryAddSingleton<IEFCoreDebugLogger, EFCoreDebugLogger>();
             services.TryAddSingleton<IEFCoreCacheKeyPrefixProvider, EFCoreCacheKeyPrefixProvider>();
-            services.TryAddSingleton<IEFCoreCacheKeyProvider, EFCoreCacheKeyProvider>();
             services.TryAddSingleton<IEFCoreCachePolicyParser, EFCoreCachePolicyParser>();
             services.TryAddSingleton<IEFCoreSqlCommandsProcessor, EFCoreSqlCommandsProcessor>();
             services.TryAddSingleton<IEFCoreCacheDependenciesProcessor, EFCoreCacheDependenciesProcessor>();
@@ -34,7 +33,18 @@ namespace EFCoreCache.Extensions
             services.TryAddSingleton<EFCoreCacheInterceptor>();
 
             ConfigOptions(services, options);
+            return services;
+        }
+        public static IServiceCollection AddRedisCache(
+                      this IServiceCollection services,
+                      Action<EFCoreCacheOptions> options)
+        {
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
 
+            ConfigOptions(services, options);
             return services;
         }
 
@@ -73,7 +83,7 @@ namespace EFCoreCache.Extensions
             }
             else
             {
-                services.TryAddSingleton(typeof(IEFCoreCacheServiceProvider), cacheOptions.Settings.CacheProvider);
+                services.TryAddSingleton(typeof(IDataRedisCache), cacheOptions.Settings.CacheProvider);
             }
         }
     }

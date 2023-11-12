@@ -2,11 +2,12 @@
 using EFCoreCache.Enums;
 using EFCoreCache.Interfaces;
 using EFCoreCache.Providers;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace EFCoreCache;
 public class EFCoreCacheOptions
 {
-     internal EFCoreCacheSettings Settings { get; } = new();
+    internal EFCoreCacheSettings Settings { get; } = new();
 
     /// <summary>
     ///     Puts the whole system in cache. In this case calling the `Cacheable()` methods won't be necessary.
@@ -18,11 +19,11 @@ public class EFCoreCacheOptions
     public EFCoreCacheOptions CacheAllQueries(CacheExpirationMode expirationMode, TimeSpan timeout)
     {
         Settings.CacheAllQueriesOptions = new CacheAllQueriesOptions
-                                          {
-                                              ExpirationMode = expirationMode,
-                                              Timeout = timeout,
-                                              IsActive = true,
-                                          };
+        {
+            ExpirationMode = expirationMode,
+            Timeout = timeout,
+            IsActive = true,
+        };
         return this;
     }
 
@@ -47,13 +48,13 @@ public class EFCoreCacheOptions
         params string[] realTableNames)
     {
         Settings.CacheSpecificQueriesOptions = new CacheSpecificQueriesOptions(null)
-                                               {
-                                                   ExpirationMode = expirationMode,
-                                                   Timeout = timeout,
-                                                   IsActive = true,
-                                                   TableNames = realTableNames,
-                                                   TableNameComparison = tableNameComparison,
-                                               };
+        {
+            ExpirationMode = expirationMode,
+            Timeout = timeout,
+            IsActive = true,
+            TableNames = realTableNames,
+            TableNameComparison = tableNameComparison,
+        };
         return this;
     }
 
@@ -74,12 +75,12 @@ public class EFCoreCacheOptions
         params Type[] entityTypes)
     {
         Settings.CacheSpecificQueriesOptions = new CacheSpecificQueriesOptions(entityTypes)
-                                               {
-                                                   ExpirationMode = expirationMode,
-                                                   Timeout = timeout,
-                                                   IsActive = true,
-                                                   TableTypeComparison = tableTypeComparison,
-                                               };
+        {
+            ExpirationMode = expirationMode,
+            Timeout = timeout,
+            IsActive = true,
+            TableTypeComparison = tableTypeComparison,
+        };
         return this;
     }
 
@@ -100,10 +101,12 @@ public class EFCoreCacheOptions
     ///     You can introduce a custom IEFCacheServiceProvider to be used as the CacheProvider.
     /// </summary>
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
-    public EFCoreCacheOptions UseCustomCacheProvider<T>(string providerName) where T : IEFCoreCacheServiceProvider
+    public EFCoreCacheOptions UseRedisCacheProvider<T>(string providerName,
+                                                       string redisConnectionString) where T : IDistributedCache
     {
         Settings.CacheProvider = typeof(T);
         Settings.ProviderName = providerName;
+        Settings.RedisConnectionString = redisConnectionString;
         return this;
     }
 
@@ -114,18 +117,20 @@ public class EFCoreCacheOptions
     /// <param name="expirationMode">Defines the expiration mode of the cache items globally.</param>
     /// <param name="timeout">The expiration timeout.</param>
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
-    public EFCoreCacheOptions UseCustomCacheProvider<T>(CacheExpirationMode expirationMode,
-                                                        TimeSpan timeout, 
-                                                        string providerName) where T : IEFCoreCacheServiceProvider
+    public EFCoreCacheOptions UseRedisCacheProvider<T>(CacheExpirationMode expirationMode,
+                                                       TimeSpan timeout,
+                                                       string providerName,
+                                                       string redisConnectionString) where T : IDistributedCache
     {
         Settings.CacheProvider = typeof(T);
         Settings.ProviderName = providerName;
+        Settings.RedisConnectionString = redisConnectionString;
         Settings.CachableQueriesOptions = new CachableQueriesOptions
-                                          {
-                                              ExpirationMode = expirationMode,
-                                              Timeout = timeout,
-                                              IsActive = true,
-                                          };
+        {
+            ExpirationMode = expirationMode,
+            Timeout = timeout,
+            IsActive = true,
+        };
         return this;
     }
 
@@ -149,99 +154,11 @@ public class EFCoreCacheOptions
     {
         Settings.CacheProvider = typeof(EFCoreMemoryCacheServiceProvider);
         Settings.CachableQueriesOptions = new CachableQueriesOptions
-                                          {
-                                              ExpirationMode = expirationMode,
-                                              Timeout = timeout,
-                                              IsActive = true,
-                                          };
-        return this;
-    }
-
-    /// <summary>
-    ///     Introduces the built-in `EasyCachingCoreProvider` to be used as the CacheProvider.
-    /// </summary>
-    /// <param name="providerName">Selected caching provider name.</param>
-    /// <param name="isHybridCache">Is an instance of EasyCaching.HybridCache</param>
-    public EFCoreCacheOptions UseEasyCachingCoreProvider(string providerName, bool isHybridCache = false)
-    {
-        Settings.CacheProvider = typeof(EFCoreEasyCachingProvider);
-        Settings.ProviderName = providerName;
-        Settings.IsHybridCache = isHybridCache;
-        return this;
-    }
-
-    /// <summary>
-    ///     Introduces the built-in `EasyCachingCoreProvider` to be used as the CacheProvider.
-    /// </summary>
-    /// <param name="providerName">
-    ///     Selected caching provider name.
-    ///     This option will let you to choose a different redis database for your current tenant.
-    ///     <![CDATA[ Such as: (serviceProvider, cacheKey) => "redis-db-" + serviceProvider.GetRequiredService<IHttpContextAccesor>().HttpContext.Request.Headers["tenant-id"]; ]]>
-    /// </param>
-    /// <param name="isHybridCache">Is an instance of EasyCaching.HybridCache</param>
-    public EFCoreCacheOptions UseEasyCachingCoreProvider(
-        Func<IServiceProvider, EFCoreCacheKey?, string> providerName,
-        bool isHybridCache = false)
-    {
-        Settings.CacheProvider = typeof(EFCoreEasyCachingProvider);
-        Settings.CacheProviderName = providerName;
-        Settings.IsHybridCache = isHybridCache;
-        return this;
-    }
-
-    /// <summary>
-    ///     Introduces the built-in `EasyCachingCoreProvider` to be used as the CacheProvider.
-    ///     If you specify the `Cacheable()` method options, its setting will override this global setting.
-    /// </summary>
-    /// <param name="providerName">Selected caching provider name.</param>
-    /// <param name="expirationMode">Defines the expiration mode of the cache items globally.</param>
-    /// <param name="timeout">The expiration timeout.</param>
-    /// <param name="isHybridCache">Is an instance of EasyCaching.HybridCache</param>
-    public EFCoreCacheOptions UseEasyCachingCoreProvider(
-        string providerName,
-        CacheExpirationMode expirationMode,
-        TimeSpan timeout,
-        bool isHybridCache = false)
-    {
-        Settings.CacheProvider = typeof(EFCoreEasyCachingProvider);
-        Settings.ProviderName = providerName;
-        Settings.IsHybridCache = isHybridCache;
-        Settings.CachableQueriesOptions = new CachableQueriesOptions
-                                          {
-                                              ExpirationMode = expirationMode,
-                                              Timeout = timeout,
-                                              IsActive = true,
-                                          };
-        return this;
-    }
-
-    /// <summary>
-    ///     Introduces the built-in `EasyCachingCoreProvider` to be used as the CacheProvider.
-    ///     If you specify the `Cacheable()` method options, its setting will override this global setting.
-    /// </summary>
-    /// <param name="providerName">
-    ///     Selected caching provider name.
-    ///     This option will let you to choose a different redis database for your current tenant.
-    ///     <![CDATA[ Such as: (serviceProvider, cacheKey) => "redis-db-" + serviceProvider.GetRequiredService<IHttpContextAccesor>().HttpContext.Request.Headers["tenant-id"]; ]]>
-    /// </param>
-    /// <param name="expirationMode">Defines the expiration mode of the cache items globally.</param>
-    /// <param name="timeout">The expiration timeout.</param>
-    /// <param name="isHybridCache">Is an instance of EasyCaching.HybridCache</param>
-    public EFCoreCacheOptions UseEasyCachingCoreProvider(
-        Func<IServiceProvider, EFCoreCacheKey?, string> providerName,
-        CacheExpirationMode expirationMode,
-        TimeSpan timeout,
-        bool isHybridCache = false)
-    {
-        Settings.CacheProvider = typeof(EFCoreEasyCachingProvider);
-        Settings.CacheProviderName = providerName;
-        Settings.IsHybridCache = isHybridCache;
-        Settings.CachableQueriesOptions = new CachableQueriesOptions
-                                          {
-                                              ExpirationMode = expirationMode,
-                                              Timeout = timeout,
-                                              IsActive = true,
-                                          };
+        {
+            ExpirationMode = expirationMode,
+            Timeout = timeout,
+            IsActive = true,
+        };
         return this;
     }
 
@@ -272,7 +189,16 @@ public class EFCoreCacheOptions
         Settings.CacheKeyPrefix = prefix;
         return this;
     }
-
+    public EFCoreCacheOptions UseEntityCacheKeyPrefix(string prefix)
+    {
+        Settings.EntityCachePrefix = prefix;
+        return this;
+    }
+    public EFCoreCacheOptions UseExtraInvalidateSets(Dictionary<string, string> invalidateSets)
+    {
+        Settings.ExtraInvalidateSets = invalidateSets;
+        return this;
+    }
     /// <summary>
     ///     Should the debug level logging be disabled?
     ///     Set it to true for maximum performance.
@@ -339,12 +265,12 @@ public class EFCoreCacheOptions
         CacheExpirationMode expirationMode, TimeSpan timeout, params string[] realTableNames)
     {
         Settings.SkipCacheSpecificQueriesOptions = new SkipCacheSpecificQueriesOptions(null)
-                                                   {
-                                                       ExpirationMode = expirationMode,
-                                                       Timeout = timeout,
-                                                       IsActive = true,
-                                                       TableNames = realTableNames,
-                                                   };
+        {
+            ExpirationMode = expirationMode,
+            Timeout = timeout,
+            IsActive = true,
+            TableNames = realTableNames,
+        };
         return this;
     }
 
@@ -360,11 +286,11 @@ public class EFCoreCacheOptions
         CacheExpirationMode expirationMode, TimeSpan timeout, params Type[] entityTypes)
     {
         Settings.SkipCacheSpecificQueriesOptions = new SkipCacheSpecificQueriesOptions(entityTypes)
-                                                   {
-                                                       ExpirationMode = expirationMode,
-                                                       Timeout = timeout,
-                                                       IsActive = true,
-                                                   };
+        {
+            ExpirationMode = expirationMode,
+            Timeout = timeout,
+            IsActive = true,
+        };
         return this;
     }
 }

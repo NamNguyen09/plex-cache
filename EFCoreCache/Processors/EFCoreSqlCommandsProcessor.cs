@@ -79,7 +79,7 @@ public class EFCoreSqlCommandsProcessor : IEFCoreSqlCommandsProcessor
         }
 
         return _contextTableNames.GetOrAdd(context.GetType(),
-                                           _ => new Lazy<List<TableEntityInfo>>(() => getTableNames(context),
+                                           _ => new Lazy<List<TableEntityInfo>>(() => GetTableNames(context),
                                                                                 LazyThreadSafetyMode
                                                                                     .ExecutionAndPublication)).Value;
     }
@@ -91,11 +91,8 @@ public class EFCoreSqlCommandsProcessor : IEFCoreSqlCommandsProcessor
     {
         var commandTextKey = $"{_hashProvider.ComputeHash(commandText):X}";
         return _commandTableNames.GetOrAdd(commandTextKey,
-                                           _ =>
-                                               new
-                                                   Lazy<SortedSet<
-                                                       string>>(() => getRawSqlCommandTableNames(commandText),
-                                                                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+                                           _ => new Lazy<SortedSet<string>>(() => GetRawSqlCommandTableNames(commandText),
+                                                        LazyThreadSafetyMode.ExecutionAndPublication)).Value;
     }
 
     /// <summary>
@@ -109,36 +106,38 @@ public class EFCoreSqlCommandsProcessor : IEFCoreSqlCommandsProcessor
                              .ToList();
     }
 
-    private static List<TableEntityInfo> getTableNames(DbContext context)
+    private static List<TableEntityInfo> GetTableNames(DbContext context)
     {
         var tableNames = new List<TableEntityInfo>();
-        foreach (var entityType in context.Model.GetEntityTypes())
+        var entityTypes = context.Model.GetEntityTypes();
+        foreach (var entityType in entityTypes)
         {
-            var clrType = getClrType(entityType);
+            var clrType = GetClrType(entityType);
+            if (clrType == null) continue;
             tableNames.Add(
                            new TableEntityInfo
                            {
                                ClrType = clrType,
-                               TableName = getTableName(entityType) ?? clrType.ToString(),
+                               TableName = GetTableName(entityType) ?? clrType.ToString()
                            });
         }
 
         return tableNames;
     }
 
-    private static string? getTableName(object entityType)
+    private static string? GetTableName(object entityType)
     {
         return GetTableNameMethodInfo.Invoke(null, new[] { entityType }) as string;
     }
 
-    private static Type getClrType(object entityType)
+    private static Type GetClrType(object entityType)
     {
         var value = ClrTypePropertyInfo.GetValue(entityType) ??
                     throw new InvalidOperationException($"Couldn't get the ClrType value of `{entityType}`");
         return (Type)value;
     }
 
-    private static SortedSet<string> getRawSqlCommandTableNames(string commandText)
+    private static SortedSet<string> GetRawSqlCommandTableNames(string commandText)
     {
         string[] tableMarkers = { "FROM", "JOIN", "INTO", "UPDATE", "MERGE" };
 
@@ -151,16 +150,11 @@ public class EFCoreSqlCommandsProcessor : IEFCoreSqlCommandsProcessor
         {
             foreach (var marker in tableMarkers)
             {
-                if (!sqlItems[i].Equals(marker, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
+                if (!sqlItems[i].Equals(marker, StringComparison.OrdinalIgnoreCase)) continue;
 
                 ++i;
-                if (i >= sqlItemsLength)
-                {
-                    continue;
-                }
+
+                if (i >= sqlItemsLength) continue;
 
                 var tableName = string.Empty;
 
@@ -174,16 +168,15 @@ public class EFCoreSqlCommandsProcessor : IEFCoreSqlCommandsProcessor
                     tableName = tableNameParts[1].Trim();
                 }
 
-                if (string.IsNullOrWhiteSpace(tableName))
-                {
-                    continue;
-                }
+                if (string.IsNullOrWhiteSpace(tableName)) continue;
 
                 tableName = tableName.Replace("[", "", StringComparison.Ordinal)
                                      .Replace("]", "", StringComparison.Ordinal)
                                      .Replace("'", "", StringComparison.Ordinal)
                                      .Replace("`", "", StringComparison.Ordinal)
                                      .Replace("\"", "", StringComparison.Ordinal);
+
+                if (tableName == "(") continue;
                 tables.Add(tableName);
             }
         }

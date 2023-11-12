@@ -26,7 +26,8 @@ public class EFCoreCacheKeyPrefixProvider : IEFCoreCacheKeyPrefixProvider
     /// <summary>
     ///     returns the current provided cache key prefix
     /// </summary>
-    public string GetCacheKeyPrefix() => _cacheSettings.CacheKeyPrefixSelector is not null
+    public string GetCacheKeyPrefix() => _cacheSettings.CacheKeyPrefixSelector != null
                                              ? _cacheSettings.CacheKeyPrefixSelector(_serviceProvider)
                                              : _cacheSettings.CacheKeyPrefix;
+    public string GetEntityCacheKeyPrefix() => _cacheSettings.EntityCachePrefix;
 }

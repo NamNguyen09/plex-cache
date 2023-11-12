@@ -1,6 +1,7 @@
 ﻿using System.Data.Common;
 using EFCoreCache.CachePolicies;
 using EFCoreCache.Interfaces;
+using EFCoreCache.RedisCaches;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -9,7 +10,7 @@ namespace EFCoreCache.Processors;
 public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcessor
 {
     private readonly IEFCoreCacheKeyPrefixProvider _cacheKeyPrefixProvider;
-    private readonly IEFCoreCacheServiceProvider _cacheServiceProvider;
+    private readonly IDataRedisCache _cacheServiceProvider;
     private readonly EFCoreCacheSettings _cacheSettings;
     private readonly ILogger<EFCoreCacheDependenciesProcessor> _dependenciesProcessorLogger;
     private readonly IEFCoreDebugLogger _logger;
@@ -21,7 +22,7 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
     public EFCoreCacheDependenciesProcessor(
         IEFCoreDebugLogger logger,
         ILogger<EFCoreCacheDependenciesProcessor> dependenciesProcessorLogger,
-        IEFCoreCacheServiceProvider cacheServiceProvider,
+        IDataRedisCache cacheServiceProvider,
         IEFCoreSqlCommandsProcessor sqlCommandsProcessor,
         IOptions<EFCoreCacheSettings> cacheSettings,
         IEFCoreCacheKeyPrefixProvider cacheKeyPrefixProvider)
@@ -75,7 +76,8 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
         if (cacheDependencies.Count != 0)
         {
             LogProcess(tableNames, textsInsideSquareBrackets, cacheDependencies);
-            return PrefixCacheDependencies(cacheDependencies);
+            ////return PrefixCacheDependencies(cacheDependencies);
+            return cacheDependencies;
         }
 
         cacheDependencies = cachePolicy.CacheItemsDependencies as SortedSet<string>;
@@ -95,19 +97,15 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
         }
 
         LogProcess(tableNames, textsInsideSquareBrackets, cacheDependencies);
-        return PrefixCacheDependencies(cacheDependencies);
+        ////return PrefixCacheDependencies(cacheDependencies);
+        return cacheDependencies ?? new SortedSet<string>();
     }
 
     /// <summary>
     ///     Invalidates all of the cache entries which are dependent on any of the specified root keys.
     /// </summary>
-    public bool InvalidateCacheDependencies(string commandText, EFCoreCacheKey cacheKey)
+    public bool InvalidateCacheDependencies(string commandText)
     {
-        if (cacheKey is null)
-        {
-            throw new ArgumentNullException(nameof(cacheKey));
-        }
-
         if (!_sqlCommandsProcessor.IsCrudCommand(commandText))
         {
             if (_logger.IsLoggerEnabled)
@@ -131,16 +129,7 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
             return false;
         }
 
-        var cacheKeyPrefix = _cacheKeyPrefixProvider.GetCacheKeyPrefix();
-        cacheKey.CacheDependencies.Add($"{cacheKeyPrefix}{EFCoreCachePolicy.UnknownsCacheDependency}");
-        _cacheServiceProvider.InvalidateCacheDependencies(cacheKey);
-
-        if (_logger.IsLoggerEnabled)
-        {
-            _dependenciesProcessorLogger.LogDebug(CacheableEventId.QueryResultInvalidated,
-                                                  "Invalidated [{Items}] dependencies.",
-                                                  string.Join(", ", cacheKey.CacheDependencies));
-        }
+        _cacheServiceProvider.InvalidateItem(commandText);
 
         return true;
     }

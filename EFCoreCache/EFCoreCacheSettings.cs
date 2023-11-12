@@ -4,6 +4,7 @@ namespace EFCoreCache
 {
     public class EFCoreCacheSettings
     {
+        public string? RedisConnectionString { get; set; }
         public Type? CacheProvider { get; set; }
 
         /// <summary>
@@ -23,16 +24,12 @@ namespace EFCoreCache
         public Func<IServiceProvider, EFCoreCacheKey?, string>? CacheProviderName { set; get; }
 
         /// <summary>
-        ///     Is an instance of EasyCaching.HybridCache
-        /// </summary>
-        public bool IsHybridCache { get; set; }
-
-        /// <summary>
         ///     Gets or sets the cache key prefix.
         ///     Its default value is `EF_`.
         /// </summary>
         /// <value>The cache key prefix.</value>
         public string CacheKeyPrefix { get; set; } = "_EFCache.Data_";
+        public string EntityCachePrefix { get; set; } = "_EFCache.EntitySetKey_";
 
         /// <summary>
         ///     Gets or sets a dynamic cache key prefix.
@@ -80,6 +77,7 @@ namespace EFCoreCache
         ///     Here you can decide based on the correct executing SQL command, should we invalidate the cache or not?
         /// </summary>
         public Predicate<string>? SkipCacheInvalidationCommands { set; get; }
+        public Dictionary<string, string>? ExtraInvalidateSets { get; set; }
 
         /// <summary>
         ///     Here you can decide based on the correct executing result, should we cache this result or not?

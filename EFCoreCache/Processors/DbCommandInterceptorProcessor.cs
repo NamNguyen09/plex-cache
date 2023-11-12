@@ -2,19 +2,22 @@
 using System.Globalization;
 using EFCoreCache.CachePolicies;
 using EFCoreCache.Interfaces;
+using EFCoreCache.RedisCaches;
 using EFCoreCache.Tables;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace EFCoreCache.Processors;
 public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
 {
     private readonly IEFCoreCacheDependenciesProcessor _cacheDependenciesProcessor;
-    private readonly IEFCoreCacheKeyProvider _cacheKeyProvider;
     private readonly IEFCoreCachePolicyParser _cachePolicyParser;
-    private readonly IEFCoreCacheServiceProvider _cacheService;
+    private readonly IDataRedisCache _cacheService;
     private readonly EFCoreCacheSettings _cacheSettings;
     private readonly ILogger<DbCommandInterceptorProcessor> _interceptorProcessorLogger;
     private readonly IEFCoreDebugLogger _logger;
@@ -26,16 +29,14 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
     public DbCommandInterceptorProcessor(
         IEFCoreDebugLogger logger,
         ILogger<DbCommandInterceptorProcessor> interceptorProcessorLogger,
-        IEFCoreCacheServiceProvider cacheService,
+        IDataRedisCache cacheService,
         IEFCoreCacheDependenciesProcessor cacheDependenciesProcessor,
-        IEFCoreCacheKeyProvider cacheKeyProvider,
         IEFCoreCachePolicyParser cachePolicyParser,
         IEFCoreSqlCommandsProcessor sqlCommandsProcessor,
         IOptions<EFCoreCacheSettings> cacheSettings)
     {
         _cacheService = cacheService;
         _cacheDependenciesProcessor = cacheDependenciesProcessor;
-        _cacheKeyProvider = cacheKeyProvider;
         _cachePolicyParser = cachePolicyParser;
         _logger = logger;
         _interceptorProcessorLogger = interceptorProcessorLogger;
@@ -77,8 +78,7 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
         }
 
         var commandText = command.CommandText;
-        var efCacheKey = _cacheKeyProvider.GetEFCacheKey(command, context, cachePolicy ?? new EFCoreCachePolicy());
-        if (_cacheDependenciesProcessor.InvalidateCacheDependencies(commandText, efCacheKey))
+        if (_cacheDependenciesProcessor.InvalidateCacheDependencies(commandText))
         {
             return result;
         }
@@ -93,20 +93,27 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             return result;
         }
 
+        var distributedCacheOption = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpiration = DateTimeOffset.Now.AddMinutes(cachePolicy.CacheTimeout.TotalMinutes),
+            AbsoluteExpirationRelativeToNow = cachePolicy.CacheTimeout
+        };
+        var cacheDependencies = _cacheDependenciesProcessor.GetCacheDependencies(command, context, cachePolicy);
+        var dependencyEntitySets = new List<string>();
+        foreach (var entitySet in cacheDependencies)
+        {
+            if (entitySet == null) continue;
+            dependencyEntitySets.Add($"{entitySet}Entity");
+        }
+
         if (result is int data)
         {
-            if (!ShouldSkipCachingResults(commandText, data))
-            {
-                _cacheService.InsertValue(efCacheKey, new EFCoreCachedData { NonQuery = data }, cachePolicy);
+            if (ShouldSkipCachingResults(commandText, data)) return result;
+            _cacheService.PutItem(commandText, new EFCoreCachedData { NonQuery = data }, dependencyEntitySets, distributedCacheOption);
 
-                if (_logger.IsLoggerEnabled)
-                {
-                    _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
-                                                         "[{Data}] added to the cache[{EfCacheKey}].", data,
-                                                         efCacheKey);
-                }
-            }
-
+            if (!_logger.IsLoggerEnabled) return result;
+            _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
+                                                 "[{Data}] added to the cache[{EfCacheKey}].", data, commandText);
             return result;
         }
 
@@ -118,35 +125,32 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
                 tableRows = dbReaderLoader.LoadAndClose();
             }
 
-            if (!ShouldSkipCachingResults(commandText, tableRows))
-            {
-                _cacheService.InsertValue(efCacheKey, new EFCoreCachedData { TableRows = tableRows }, cachePolicy);
+            if (ShouldSkipCachingResults(commandText, tableRows)) return (T)(object)new EFCoreTableRowsDataReader(tableRows);
 
-                if (_logger.IsLoggerEnabled)
-                {
-                    _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
-                                                         "TableRows[{TableName}] added to the cache[{EfCacheKey}].",
-                                                         tableRows.TableName, efCacheKey);
-                }
-            }
+            _cacheService.PutItem(commandText, new EFCoreCachedData { TableRows = tableRows, IsNull = tableRows == null }, dependencyEntitySets, distributedCacheOption);
+
+            if (tableRows == null) tableRows = new EFCoreTableRows();
+            if (!_logger.IsLoggerEnabled) return (T)(object)new EFCoreTableRowsDataReader(tableRows);
+
+            _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
+                                                 "TableRows[{TableName}] added to the cache[{EfCacheKey}].",
+                                                 tableRows.TableName, commandText);
 
             return (T)(object)new EFCoreTableRowsDataReader(tableRows);
         }
 
         if (result is object)
         {
-            if (!ShouldSkipCachingResults(commandText, result))
-            {
-                _cacheService.InsertValue(efCacheKey, new EFCoreCachedData { Scalar = result }, cachePolicy);
+            if (ShouldSkipCachingResults(commandText, result)) return result;
 
-                if (_logger.IsLoggerEnabled)
-                {
-                    _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
-                                                         "[{Result}] added to the cache[{EfCacheKey}].",
-                                                         result, efCacheKey);
-                }
-            }
+            _cacheService.PutItem(commandText, new EFCoreCachedData { Scalar = result, IsNull = result == null },
+                                  dependencyEntitySets, distributedCacheOption);
 
+            if (!_logger.IsLoggerEnabled) return result;
+
+            _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
+                                                 "[{Result}] added to the cache[{EfCacheKey}].",
+                                                 result, commandText);
             return result;
         }
 
@@ -171,24 +175,27 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
         var commandText = command.CommandText;
         if (cachePolicy == null)
         {
-            if (_logger.IsLoggerEnabled)
-            {
-                _interceptorProcessorLogger.LogDebug("Skipping a none-cachable command[{CommandText}].",
-                                                     commandText);
-            }
+            if (!_logger.IsLoggerEnabled) return result;
 
+            _interceptorProcessorLogger.LogDebug("Skipping a none-cachable command[{CommandText}].",
+                                                 commandText);
             return result;
         }
 
-        var efCacheKey = _cacheKeyProvider.GetEFCacheKey(command, context, cachePolicy);
-        if (!(_cacheService.GetValue(efCacheKey, cachePolicy) is EFCoreCachedData cacheResult))
+        object? cacheValue;
+        if (!_cacheService.GetItem(commandText, out cacheValue))
         {
-            if (_logger.IsLoggerEnabled)
-            {
-                _interceptorProcessorLogger.LogDebug("[{EfCacheKey}] was not present in the cache.", efCacheKey);
-            }
-
+            if (!_logger.IsLoggerEnabled) return result;
+            _interceptorProcessorLogger.LogDebug("[{EfCacheKey}] was not present in the cache.", commandText);
             return result;
+        }
+        if (cacheValue == null) return result;
+
+        EFCoreCachedData? cacheResult = new EFCoreCachedData { IsNull = true };
+        var cacheEntryValue = ((CacheEntry)cacheValue).Value;
+        if (cacheEntryValue != null && cacheEntryValue.GetType() == typeof(JObject))
+        {
+            cacheResult = JsonConvert.DeserializeObject<EFCoreCachedData>(Convert.ToString(cacheEntryValue) ?? "") ?? new EFCoreCachedData { IsNull = true };
         }
 
         if (result is InterceptionResult<DbDataReader>)
@@ -201,24 +208,20 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
                 }
 
                 using var rows = new EFCoreTableRowsDataReader(new EFCoreTableRows());
-                return (T)Convert.ChangeType(
-                                             InterceptionResult<DbDataReader>.SuppressWithResult(rows),
-                                             typeof(T),
-                                             CultureInfo.InvariantCulture);
+                return (T)Convert.ChangeType(InterceptionResult<DbDataReader>.SuppressWithResult(rows),
+                                             typeof(T), CultureInfo.InvariantCulture);
             }
 
             if (_logger.IsLoggerEnabled)
             {
                 _interceptorProcessorLogger
                     .LogDebug("Suppressed the result with the TableRows[{TableName}] from the cache[{EfCacheKey}].",
-                              cacheResult.TableRows.TableName, efCacheKey);
+                              nameof(result), commandText);
             }
 
             using var dataRows = new EFCoreTableRowsDataReader(cacheResult.TableRows);
-            return (T)Convert.ChangeType(
-                                         InterceptionResult<DbDataReader>.SuppressWithResult(dataRows),
-                                         typeof(T),
-                                         CultureInfo.InvariantCulture);
+            return (T)Convert.ChangeType(InterceptionResult<DbDataReader>.SuppressWithResult(dataRows),
+                                         typeof(T), CultureInfo.InvariantCulture);
         }
 
         if (result is InterceptionResult<int>)
@@ -229,13 +232,11 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             {
                 _interceptorProcessorLogger
                     .LogDebug("Suppressed the result with {CachedResult} from the cache[{EfCacheKey}].",
-                              cachedResult, efCacheKey);
+                              cachedResult, commandText);
             }
 
-            return (T)Convert.ChangeType(
-                                         InterceptionResult<int>.SuppressWithResult(cachedResult),
-                                         typeof(T),
-                                         CultureInfo.InvariantCulture);
+            return (T)Convert.ChangeType(InterceptionResult<int>.SuppressWithResult(cachedResult),
+                                         typeof(T), CultureInfo.InvariantCulture);
         }
 
         if (result is InterceptionResult<object>)
@@ -245,20 +246,17 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             if (_logger.IsLoggerEnabled)
             {
                 _interceptorProcessorLogger
-                    .LogDebug("Suppressed the result with {CachedResult} from the cache[{EfCacheKey}].",
-                              cachedResult, efCacheKey);
+                            .LogDebug("Suppressed the result with {CachedResult} from the cache[{EfCacheKey}].",
+                              cachedResult, commandText);
             }
 
-            return (T)Convert.ChangeType(
-                                         InterceptionResult<object>.SuppressWithResult(cachedResult ?? new object()),
-                                         typeof(T),
-                                         CultureInfo.InvariantCulture);
+            return (T)Convert.ChangeType(InterceptionResult<object>.SuppressWithResult(cachedResult ?? new object()),
+                                         typeof(T), CultureInfo.InvariantCulture);
         }
 
         if (_logger.IsLoggerEnabled)
         {
-            _interceptorProcessorLogger.LogDebug("Skipped the result with {Type} type.",
-                                                 result?.GetType());
+            _interceptorProcessorLogger.LogDebug("Skipped the result with {Type} type.", result?.GetType());
         }
 
         return result;
