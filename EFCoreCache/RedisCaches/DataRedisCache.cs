@@ -11,7 +11,6 @@ public class DataRedisCache : IDataRedisCache
 {
     private readonly EFCoreCacheSettings _cacheSettings;
     private readonly ILogger<DataRedisCache> _logger;
-    private readonly BinarySerializer.BinarySerializer _serializer;
     private static string? _configuration;
 
     public DataRedisCache(ILogger<DataRedisCache> logger,
@@ -28,7 +27,6 @@ public class DataRedisCache : IDataRedisCache
         _cacheSettings = cacheSettings.Value;
         _logger = logger;
         SetConfiguration(cacheSettings.Value.RedisConnectionString);
-        _serializer = new BinarySerializer.BinarySerializer();
     }
     static void SetConfiguration(string configuration)
     {
@@ -67,9 +65,7 @@ public class DataRedisCache : IDataRedisCache
             var cachedData = _redisDatabase.StringGet(hashedKey);
             if (!string.IsNullOrEmpty(cachedData))
             {
-                // Improve when convert all apis to NET >= 6
-                ////var entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
-                var entry = _serializer.Deserialize<CacheEntry>(cachedData);
+                var entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
                 value = entry;
                 return true;
             }
@@ -105,9 +101,7 @@ public class DataRedisCache : IDataRedisCache
             }
 
             var cacheEntry = new CacheEntry(value, entitySets);
-            // Improve when convert all apis to NET >= 6
-            ////var data = JsonConvert.SerializeObject(cacheEntry);           
-            var data = _serializer.Serialize(cacheEntry);
+            var data = JsonConvert.SerializeObject(cacheEntry);
             _redisDatabase.StringSetAsync(hashedKey, data, expiration);
         }
         catch (Exception ex)
