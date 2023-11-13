@@ -104,7 +104,7 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
     /// <summary>
     ///     Invalidates all of the cache entries which are dependent on any of the specified root keys.
     /// </summary>
-    public bool InvalidateCacheDependencies(string commandText)
+    public bool InvalidateCacheDependencies(string commandText, string cacheKey)
     {
         if (!_sqlCommandsProcessor.IsCrudCommand(commandText))
         {
@@ -129,7 +129,7 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
             return false;
         }
 
-        _cacheServiceProvider.InvalidateItem(commandText);
+        _cacheServiceProvider.InvalidateItem(cacheKey);
 
         return true;
     }

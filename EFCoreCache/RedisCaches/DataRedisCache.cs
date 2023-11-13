@@ -9,10 +9,10 @@ using StackExchange.Redis;
 namespace EFCoreCache.RedisCaches;
 public class DataRedisCache : IDataRedisCache
 {
-    private readonly IConnectionMultiplexer _connectionMultiplexer;
-    private readonly IDatabase _redisDatabase;
     private readonly EFCoreCacheSettings _cacheSettings;
     private readonly ILogger<DataRedisCache> _logger;
+    private readonly BinarySerializer.BinarySerializer _serializer;
+    private static string? _configuration;
 
     public DataRedisCache(ILogger<DataRedisCache> logger,
         IOptions<EFCoreCacheSettings> cacheSettings)
@@ -23,10 +23,35 @@ public class DataRedisCache : IDataRedisCache
             throw new ArgumentNullException(nameof(cacheSettings));
         }
 
-        _connectionMultiplexer = ConnectionMultiplexer.Connect(cacheSettings.Value.RedisConnectionString);
-        _redisDatabase = _connectionMultiplexer.GetDatabase();
+        ////_connectionMultiplexer = ConnectionMultiplexer.Connect(cacheSettings.Value.RedisConnectionString);
+        ////_redisDatabase = _connectionMultiplexer.GetDatabase();
         _cacheSettings = cacheSettings.Value;
         _logger = logger;
+        SetConfiguration(cacheSettings.Value.RedisConnectionString);
+        _serializer = new BinarySerializer.BinarySerializer();
+    }
+    static void SetConfiguration(string configuration)
+    {
+        _configuration = configuration;
+    }
+    private static Lazy<ConnectionMultiplexer> lazyConnection = new Lazy<ConnectionMultiplexer>(() =>
+    {
+        return ConnectionMultiplexer.Connect(_configuration);
+    });
+
+    public static ConnectionMultiplexer ConnectionMultiplexer
+    {
+        get
+        {
+            return lazyConnection.Value;
+        }
+    }
+    private static IDatabase _redisDatabase
+    {
+        get
+        {
+            return ConnectionMultiplexer.GetDatabase();
+        }
     }
 
     public byte[] Get(string key)
@@ -42,16 +67,21 @@ public class DataRedisCache : IDataRedisCache
             var cachedData = _redisDatabase.StringGet(hashedKey);
             if (!string.IsNullOrEmpty(cachedData))
             {
-                var entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
-                value = entry ?? null;
+                // Improve when convert all apis to NET >= 6
+                ////var entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
+                var entry = _serializer.Deserialize<CacheEntry>(cachedData);
+                value = entry;
                 return true;
             }
             return false;
         }
         catch (Exception ex)
         {
-            var stackTrace = string.Format("{0}{1}{2}{3}", Environment.NewLine, ex.StackTrace, Environment.NewLine, Environment.StackTrace);
-            _logger.LogError(string.Format("{0} - isHashedKey='{1}': {2} {3}", ex.GetType().FullName, hashed, ex.Message, stackTrace));
+            if (_cacheSettings.DisableLogging) return false;
+            string? stackTrace = $"{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}{Environment.StackTrace}";
+            _logger.LogWarning($"{ex.GetType().FullName}: {stackTrace}");
+            if (!hashed) return false;
+            _logger.LogDebug($"{ex.GetType().FullName} - isHashedKey='{hashed}' from cachekey '{key}': {ex.Message} {stackTrace}");
         }
         return false;
     }
@@ -75,13 +105,18 @@ public class DataRedisCache : IDataRedisCache
             }
 
             var cacheEntry = new CacheEntry(value, entitySets);
-            var data = JsonConvert.SerializeObject(cacheEntry);
+            // Improve when convert all apis to NET >= 6
+            ////var data = JsonConvert.SerializeObject(cacheEntry);           
+            var data = _serializer.Serialize(cacheEntry);
             _redisDatabase.StringSetAsync(hashedKey, data, expiration);
         }
         catch (Exception ex)
         {
-            var stackTrace = string.Format("{0}{1}{2}{3}", Environment.NewLine, ex.StackTrace, Environment.NewLine, Environment.StackTrace);
-            _logger.LogError(string.Format("{0} - isHashedKey='{1}': {2} {3}", ex.GetType().FullName, hashed, ex.Message, stackTrace));
+            if (_cacheSettings.DisableLogging) return;
+            string stackTrace = $"{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}{Environment.StackTrace}";
+            _logger.LogWarning($"{ex.GetType().FullName}: {stackTrace}");
+            if (!hashed) return;
+            _logger.LogDebug($"{ex.GetType().FullName} - isHashedKey='{hashed}' from cachekey '{key}': {ex.Message} {stackTrace}");
         }
     }
     public void Remove(string key)
@@ -93,8 +128,11 @@ public class DataRedisCache : IDataRedisCache
         }
         catch (Exception ex)
         {
-            var stackTrace = string.Format("{0}{1}{2}{3}", Environment.NewLine, ex.StackTrace, Environment.NewLine, Environment.StackTrace);
-            _logger.LogError(string.Format("{0} - isHashedKey='{1}': {2} {3}", ex.GetType().FullName, hashed, ex.Message, stackTrace));
+            if (_cacheSettings.DisableLogging) return;
+            string? stackTrace = $"{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}{Environment.StackTrace}";
+            _logger.LogWarning($"{ex.GetType().FullName}: {stackTrace}");
+            if (!hashed) return;
+            _logger.LogDebug($"{ex.GetType().FullName} - isHashedKey='{hashed}' from cachekey '{key}': {ex.Message} {stackTrace}");
         }
     }
     public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
@@ -109,8 +147,11 @@ public class DataRedisCache : IDataRedisCache
         }
         catch (Exception ex)
         {
-            var stackTrace = string.Format("{0}{1}{2}{3}", Environment.NewLine, ex.StackTrace, Environment.NewLine, Environment.StackTrace);
-            _logger.LogError(string.Format("{0} - isHashedKey='{1}': {2} {3}", ex.GetType().FullName, hashed, ex.Message, stackTrace));
+            if (_cacheSettings.DisableLogging) return;
+            string? stackTrace = $"{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}{Environment.StackTrace}";
+            _logger.LogWarning($"{ex.GetType().FullName}: {stackTrace}");
+            if (!hashed) return;
+            _logger.LogDebug($"{ex.GetType().FullName} - isHashedKey='{hashed}' from cachekey '{key}': {ex.Message} {stackTrace}");
         }
     }
     public Task<RedisValue> GetAsync(string key, CancellationToken token = default)
@@ -182,8 +223,9 @@ public class DataRedisCache : IDataRedisCache
         }
         catch (Exception ex)
         {
-            var stackTrace = string.Format("{0}{1}{2}{3}", Environment.NewLine, ex.StackTrace, Environment.NewLine, Environment.StackTrace);
-            _logger.LogError(string.Format("{0}: {1} {2}", ex.GetType().FullName, ex.Message, stackTrace));
+            if (_cacheSettings.DisableLogging) return;
+            string? stackTrace = $"{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}{Environment.StackTrace}";
+            _logger.LogError($"{ex.GetType().FullName}: {ex.Message} {stackTrace}");
             return;
         }
 
@@ -210,7 +252,7 @@ public class DataRedisCache : IDataRedisCache
             if (!_cacheSettings.ExtraInvalidateSets.ContainsKey(item)) continue;
             var invalidateSet = _cacheSettings.ExtraInvalidateSets[item];
             if (allInvalidateSets.Contains(invalidateSet)) continue;
-            allInvalidateSets.Add(invalidateSet);           
+            allInvalidateSets.Add(invalidateSet);
         }
         return allInvalidateSets;
     }
@@ -231,19 +273,22 @@ public class DataRedisCache : IDataRedisCache
         }
         catch (Exception ex)
         {
-            var stackTrace = string.Format("{0}{1}{2}{3}", Environment.NewLine, ex.StackTrace, Environment.NewLine, Environment.StackTrace);
-            _logger.LogError(string.Format("{0} - isHashedKey='{1}': {2} {3}", ex.GetType().FullName, hashed, ex.Message, stackTrace));
+            if (_cacheSettings.DisableLogging) return;
+            string? stackTrace = $"{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}{Environment.StackTrace}";
+            _logger.LogWarning($"{ex.GetType().FullName}: {stackTrace}");
+            if (!hashed) return;
+            _logger.LogDebug($"{ex.GetType().FullName} - isHashedKey='{hashed}' from cachekey '{key}': {ex.Message} {stackTrace}");
         }
     }
     public void ClearAllCache(string? pattern)
     {
         try
         {
-            var endpoints = _connectionMultiplexer.GetEndPoints(true);
+            var endpoints = ConnectionMultiplexer.GetEndPoints(true);
             foreach (var endpoint in endpoints)
             {
                 if (endpoint == null) continue;
-                var server = _connectionMultiplexer.GetServer(endpoint);
+                var server = ConnectionMultiplexer.GetServer(endpoint);
                 if (!string.IsNullOrWhiteSpace(pattern))
                 {
                     var keys = server.Keys(_redisDatabase.Database, pattern, 1000).ToArray();
@@ -261,9 +306,10 @@ public class DataRedisCache : IDataRedisCache
                 }
             }
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogError("Clear EFCache failed!", exception);
+            if (_cacheSettings.DisableLogging) return;
+            _logger.LogError($"{ex.GetType().FullName} - Clear EFCache failed!", ex);
         }
     }
     private (bool, string) GetHashKey(string key)

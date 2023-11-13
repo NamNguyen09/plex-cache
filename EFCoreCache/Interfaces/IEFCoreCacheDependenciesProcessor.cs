@@ -18,5 +18,5 @@ public interface IEFCoreCacheDependenciesProcessor
     /// <summary>
     ///     Invalidates all of the cache entries which are dependent on any of the specified root keys.
     /// </summary>
-    bool InvalidateCacheDependencies(string commandText);
+    bool InvalidateCacheDependencies(string commandText, string cacheKey);
 }

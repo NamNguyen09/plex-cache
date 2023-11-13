@@ -1,5 +1,7 @@
-﻿using System.Data.Common;
+﻿using System.Collections;
+using System.Data.Common;
 using System.Globalization;
+using System.Text;
 using EFCoreCache.CachePolicies;
 using EFCoreCache.Interfaces;
 using EFCoreCache.RedisCaches;
@@ -77,8 +79,9 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             return result;
         }
 
-        var commandText = command.CommandText;
-        if (_cacheDependenciesProcessor.InvalidateCacheDependencies(commandText))
+        string commandText = command.CommandText;
+        string efCacheKey = GetEFCacheKey(command);
+        if (_cacheDependenciesProcessor.InvalidateCacheDependencies(commandText, efCacheKey))
         {
             return result;
         }
@@ -109,11 +112,11 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
         if (result is int data)
         {
             if (ShouldSkipCachingResults(commandText, data)) return result;
-            _cacheService.PutItem(commandText, new EFCoreCachedData { NonQuery = data }, dependencyEntitySets, distributedCacheOption);
+            _cacheService.PutItem(efCacheKey, new EFCoreCachedData { NonQuery = data }, dependencyEntitySets, distributedCacheOption);
 
             if (!_logger.IsLoggerEnabled) return result;
             _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
-                                                 "[{Data}] added to the cache[{EfCacheKey}].", data, commandText);
+                                                 "[{Data}] added to the cache[{EfCacheKey}].", data, efCacheKey);
             return result;
         }
 
@@ -127,14 +130,14 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
 
             if (ShouldSkipCachingResults(commandText, tableRows)) return (T)(object)new EFCoreTableRowsDataReader(tableRows);
 
-            _cacheService.PutItem(commandText, new EFCoreCachedData { TableRows = tableRows, IsNull = tableRows == null }, dependencyEntitySets, distributedCacheOption);
+            _cacheService.PutItem(efCacheKey, new EFCoreCachedData { TableRows = tableRows, IsNull = tableRows == null }, dependencyEntitySets, distributedCacheOption);
 
             if (tableRows == null) tableRows = new EFCoreTableRows();
             if (!_logger.IsLoggerEnabled) return (T)(object)new EFCoreTableRowsDataReader(tableRows);
 
             _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
                                                  "TableRows[{TableName}] added to the cache[{EfCacheKey}].",
-                                                 tableRows.TableName, commandText);
+                                                 tableRows.TableName, efCacheKey);
 
             return (T)(object)new EFCoreTableRowsDataReader(tableRows);
         }
@@ -143,14 +146,14 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
         {
             if (ShouldSkipCachingResults(commandText, result)) return result;
 
-            _cacheService.PutItem(commandText, new EFCoreCachedData { Scalar = result, IsNull = result == null },
+            _cacheService.PutItem(efCacheKey, new EFCoreCachedData { Scalar = result, IsNull = result == null },
                                   dependencyEntitySets, distributedCacheOption);
 
             if (!_logger.IsLoggerEnabled) return result;
 
             _interceptorProcessorLogger.LogDebug(CacheableEventId.QueryResultCached,
                                                  "[{Result}] added to the cache[{EfCacheKey}].",
-                                                 result, commandText);
+                                                 result, efCacheKey);
             return result;
         }
 
@@ -172,30 +175,35 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             throw new ArgumentNullException(nameof(context));
         }
 
-        var commandText = command.CommandText;
         if (cachePolicy == null)
         {
             if (!_logger.IsLoggerEnabled) return result;
 
             _interceptorProcessorLogger.LogDebug("Skipping a none-cachable command[{CommandText}].",
-                                                 commandText);
+                                                 command.CommandText);
             return result;
         }
 
+        string efCacheKey = GetEFCacheKey(command);
         object? cacheValue;
-        if (!_cacheService.GetItem(commandText, out cacheValue))
+        if (!_cacheService.GetItem(efCacheKey, out cacheValue))
         {
             if (!_logger.IsLoggerEnabled) return result;
-            _interceptorProcessorLogger.LogDebug("[{EfCacheKey}] was not present in the cache.", commandText);
+            _interceptorProcessorLogger.LogDebug("[{EfCacheKey}] was not present in the cache.", efCacheKey);
             return result;
         }
         if (cacheValue == null) return result;
 
         EFCoreCachedData? cacheResult = new EFCoreCachedData { IsNull = true };
         var cacheEntryValue = ((CacheEntry)cacheValue).Value;
-        if (cacheEntryValue != null && cacheEntryValue.GetType() == typeof(JObject))
+        ////if (cacheEntryValue != null && cacheEntryValue.GetType() == typeof(JObject))
+        ////{
+        ////    cacheResult = JsonConvert.DeserializeObject<EFCoreCachedData>(Convert.ToString(cacheEntryValue) ?? "") 
+        ///                                                     ?? new EFCoreCachedData { IsNull = true };
+        ////}
+        if (cacheEntryValue != null && cacheEntryValue.GetType() == typeof(EFCoreCachedData))
         {
-            cacheResult = JsonConvert.DeserializeObject<EFCoreCachedData>(Convert.ToString(cacheEntryValue) ?? "") ?? new EFCoreCachedData { IsNull = true };
+            cacheResult = (EFCoreCachedData)cacheEntryValue;
         }
 
         if (result is InterceptionResult<DbDataReader>)
@@ -216,7 +224,7 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             {
                 _interceptorProcessorLogger
                     .LogDebug("Suppressed the result with the TableRows[{TableName}] from the cache[{EfCacheKey}].",
-                              nameof(result), commandText);
+                              nameof(result), efCacheKey);
             }
 
             using var dataRows = new EFCoreTableRowsDataReader(cacheResult.TableRows);
@@ -232,7 +240,7 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             {
                 _interceptorProcessorLogger
                     .LogDebug("Suppressed the result with {CachedResult} from the cache[{EfCacheKey}].",
-                              cachedResult, commandText);
+                              cachedResult, efCacheKey);
             }
 
             return (T)Convert.ChangeType(InterceptionResult<int>.SuppressWithResult(cachedResult),
@@ -247,7 +255,7 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             {
                 _interceptorProcessorLogger
                             .LogDebug("Suppressed the result with {CachedResult} from the cache[{EfCacheKey}].",
-                              cachedResult, commandText);
+                              cachedResult, efCacheKey);
             }
 
             return (T)Convert.ChangeType(InterceptionResult<object>.SuppressWithResult(cachedResult ?? new object()),
@@ -278,15 +286,15 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
             return (true, null);
         }
 
-        var commandCommandText = command?.CommandText ?? "";
-        var cachePolicy = GetCachePolicy(context, commandCommandText);
+        var commandText = command?.CommandText ?? "";
+        var cachePolicy = GetCachePolicy(context, commandText);
 
         if (ShouldSkipQueriesInsideExplicitTransaction(command))
         {
-            return (!_sqlCommandsProcessor.IsCrudCommand(commandCommandText), cachePolicy);
+            return (!_sqlCommandsProcessor.IsCrudCommand(commandText), cachePolicy);
         }
 
-        if (_sqlCommandsProcessor.IsCrudCommand(commandCommandText))
+        if (_sqlCommandsProcessor.IsCrudCommand(commandText))
         {
             return (false, cachePolicy);
         }
@@ -313,5 +321,63 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
         }
 
         return result;
+    }
+    private string GetEFCacheKey(DbCommand command, string saltKey = "")
+    {
+        var cacheKey = new StringBuilder();
+        cacheKey.AppendLine(_cachePolicyParser.RemoveEFCachePolicyTag(command.CommandText));
+
+        cacheKey.AppendLine("ConnectionString").Append('=').Append(command.Connection?.ConnectionString);
+
+        foreach (DbParameter? parameter in command.Parameters)
+        {
+            if (parameter == null)
+            {
+                continue;
+            }
+
+            cacheKey.Append(parameter.ParameterName)
+                    .Append('=').Append(GetParameterValue(parameter)).Append(',')
+                    .Append("Size").Append('=').Append(parameter.Size).Append(',')
+                    .Append("Precision").Append('=').Append(parameter.Precision).Append(',')
+                    .Append("Scale").Append('=').Append(parameter.Scale).Append(',')
+                    .Append("Direction").Append('=').Append(parameter.Direction).Append(',');
+        }
+
+        cacheKey.AppendLine("SaltKey").Append('=').Append(saltKey);
+        return cacheKey.ToString().Trim();
+    }
+    private static string? GetParameterValue(DbParameter parameter)
+    {
+        return parameter.Value switch
+        {
+            DBNull => "null",
+            null => "null",
+            byte[] buffer => BytesToHex(buffer),
+            Array array => EnumerableToString(array),
+            IEnumerable enumerable => EnumerableToString(enumerable),
+            _ => Convert.ToString(parameter.Value, CultureInfo.InvariantCulture),
+        };
+    }
+    private static string EnumerableToString(IEnumerable array)
+    {
+        var sb = new StringBuilder();
+        foreach (var item in array)
+        {
+            sb.Append(item);
+        }
+
+        return sb.ToString();
+    }
+
+    private static string BytesToHex(byte[] buffer)
+    {
+        var sb = new StringBuilder(buffer.Length * 2);
+        foreach (var @byte in buffer)
+        {
+            sb.Append(@byte.ToString("X2", CultureInfo.InvariantCulture));
+        }
+
+        return sb.ToString();
     }
 }

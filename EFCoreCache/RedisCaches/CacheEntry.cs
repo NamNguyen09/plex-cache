@@ -1,6 +1,9 @@
-﻿namespace EFCoreCache.RedisCaches;
+﻿using System.Runtime.Serialization;
+
+namespace EFCoreCache.RedisCaches;
 
 [Serializable]
+[DataContract]
 public class CacheEntry
 {
     private readonly object _value;
@@ -12,11 +15,13 @@ public class CacheEntry
         _entitySets = entitySets;
     }
 
+    [DataMember]
     public object Value
     {
         get { return _value; }
     }
 
+    [DataMember]
     public string[] EntitySets
     {
         get { return _entitySets; }

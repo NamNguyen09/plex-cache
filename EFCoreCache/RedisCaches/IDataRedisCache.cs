@@ -7,5 +7,5 @@ public interface IDataRedisCache : IDistributedCache
     void PutItem(string key, object value, IEnumerable<string> dependentEntitySets, DistributedCacheEntryOptions options);
     void InvalidateSets(IEnumerable<string> entitySets);
     void InvalidateItem(string key);
-    void ClearAllCache(string? parttern);
+    void ClearAllCache(string? pattern);
 }
