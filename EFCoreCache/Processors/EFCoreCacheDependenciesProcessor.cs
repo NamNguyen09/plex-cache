@@ -91,19 +91,22 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
 
             cacheDependencies = new SortedSet<string>(StringComparer.OrdinalIgnoreCase)
                             {
-                                EFCoreCachePolicy.UnknownsCacheDependency,
+                                EFCoreCachePolicy.UnknownsCacheDependency
                             };
         }
 
         LogProcess(tableNames, textsInsideSquareBrackets, cacheDependencies);
         ////return PrefixCacheDependencies(cacheDependencies);
-        return cacheDependencies;
+        return cacheDependencies ?? new SortedSet<string>(StringComparer.OrdinalIgnoreCase)
+                                    {
+                                        EFCoreCachePolicy.UnknownsCacheDependency
+                                    };
     }
 
     /// <summary>
     ///     Invalidates all of the cache entries which are dependent on any of the specified root keys.
     /// </summary>
-    public bool InvalidateCacheDependencies(string commandText, string cacheKey)
+    public bool InvalidateCacheDependencies(string commandText, List<string> dependencyEntitySets)
     {
         if (!_sqlCommandsProcessor.IsCrudCommand(commandText))
         {
@@ -128,7 +131,7 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
             return false;
         }
 
-        _cacheServiceProvider.InvalidateItem(cacheKey);
+        _cacheServiceProvider.InvalidateSets(dependencyEntitySets);
 
         return true;
     }

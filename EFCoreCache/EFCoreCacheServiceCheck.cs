@@ -62,10 +62,10 @@ namespace EFCoreCache
             catch
             {
                 _isCacheServerAvailable = false;
-                if (_cacheSettings.UseDbCallsIfCachingProviderIsDown)
-                {
-                    throw;
-                }
+                ////if (_cacheSettings.UseDbCallsIfCachingProviderIsDown)
+                ////{
+                ////    throw;
+                ////}
             }
 
             return _isCacheServerAvailable.Value;

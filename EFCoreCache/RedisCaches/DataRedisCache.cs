@@ -336,7 +336,6 @@ public class DataRedisCache : IDataRedisCache
     public (bool, string) GetStatus()
     {
         string message = "Cache is ready";
-
         try
         {
             var database = ConnectionMultiplexer.GetDatabase();

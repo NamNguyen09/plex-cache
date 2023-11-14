@@ -88,9 +88,16 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
                 return result;
             }
 
+            var cacheDependencies = _cacheDependenciesProcessor.GetCacheDependencies(command, context, cachePolicy ?? new EFCoreCachePolicy());
+            var dependencyEntitySets = new List<string>();
+            foreach (var entitySet in cacheDependencies)
+            {
+                if (entitySet == null) continue;
+                dependencyEntitySets.Add($"{entitySet}Entity");
+            }
+
             string commandText = command.CommandText;
-            string efCacheKey = GetEFCacheKey(command);
-            if (_cacheDependenciesProcessor.InvalidateCacheDependencies(commandText, efCacheKey))
+            if (_cacheDependenciesProcessor.InvalidateCacheDependencies(commandText, dependencyEntitySets))
             {
                 return result;
             }
@@ -110,14 +117,8 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
                 AbsoluteExpiration = DateTimeOffset.Now.AddMinutes(cachePolicy.CacheTimeout.TotalMinutes),
                 AbsoluteExpirationRelativeToNow = cachePolicy.CacheTimeout
             };
-            var cacheDependencies = _cacheDependenciesProcessor.GetCacheDependencies(command, context, cachePolicy);
-            var dependencyEntitySets = new List<string>();
-            foreach (var entitySet in cacheDependencies)
-            {
-                if (entitySet == null) continue;
-                dependencyEntitySets.Add($"{entitySet}Entity");
-            }
 
+            string efCacheKey = GetEFCacheKey(command);
             if (result is int data)
             {
                 if (ShouldSkipCachingResults(commandText, data)) return result;
