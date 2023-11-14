@@ -333,6 +333,25 @@ public class DataRedisCache : IDataRedisCache
             _logger.LogError($"{ex.GetType().FullName} - Clear EFCache failed!", ex);
         }
     }
+    public (bool, string) GetStatus()
+    {
+        string message = "Cache is ready";
+
+        try
+        {
+            var database = ConnectionMultiplexer.GetDatabase();
+            const string key = "CheckCacheStatus";
+            database.StringSet(key, "CacheIsWorking");
+            database.StringGet(key);
+            database.KeyDelete(key);
+            return (true, message);
+        }
+        catch (Exception exception)
+        {
+            message = exception.Message;
+            return (false, message);
+        }
+    }
     private (bool, string) GetHashKey(string key)
     {
         string prefix = _cacheSettings.CacheKeyPrefix;

@@ -24,6 +24,7 @@ namespace EFCoreCache.Extensions
             services.AddMemoryCache();
             services.TryAddSingleton<IEFCoreDebugLogger, EFCoreDebugLogger>();
             services.TryAddSingleton<IEFCoreCacheKeyPrefixProvider, EFCoreCacheKeyPrefixProvider>();
+            services.TryAddSingleton<IEFCoreCacheServiceCheck, EFCoreCacheServiceCheck>();
             services.TryAddSingleton<IEFCoreCachePolicyParser, EFCoreCachePolicyParser>();
             services.TryAddSingleton<IEFCoreSqlCommandsProcessor, EFCoreSqlCommandsProcessor>();
             services.TryAddSingleton<IEFCoreCacheDependenciesProcessor, EFCoreCacheDependenciesProcessor>();

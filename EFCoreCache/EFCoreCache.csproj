@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>1.2.3</Version>
+    <Version>1.2.4</Version>
     <Authors>Tom Lee</Authors>
     <Company>Conexus AS</Company>
     <Copyright>Copyright (c) 2023 Tom Lee</Copyright>
@@ -14,6 +14,7 @@
     <PackageTags>Redis;SecondLevelCache;EFCore</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Add EFCoreCacheServiceCheck to check the status of redis...</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

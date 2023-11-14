@@ -101,11 +101,9 @@ public class EFCoreCacheOptions
     ///     You can introduce a custom IEFCacheServiceProvider to be used as the CacheProvider.
     /// </summary>
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
-    public EFCoreCacheOptions UseRedisCacheProvider<T>(string providerName,
-                                                       string redisConnectionString) where T : IDistributedCache
+    public EFCoreCacheOptions UseRedisCacheProvider<T>(string redisConnectionString) where T : IDistributedCache
     {
         Settings.CacheProvider = typeof(T);
-        Settings.ProviderName = providerName;
         Settings.RedisConnectionString = redisConnectionString;
         return this;
     }
@@ -119,11 +117,9 @@ public class EFCoreCacheOptions
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
     public EFCoreCacheOptions UseRedisCacheProvider<T>(CacheExpirationMode expirationMode,
                                                        TimeSpan timeout,
-                                                       string providerName,
                                                        string redisConnectionString) where T : IDistributedCache
     {
         Settings.CacheProvider = typeof(T);
-        Settings.ProviderName = providerName;
         Settings.RedisConnectionString = redisConnectionString;
         Settings.CachableQueriesOptions = new CachableQueriesOptions
         {
@@ -296,6 +292,16 @@ public class EFCoreCacheOptions
     public EFCoreCacheOptions UseBinarySerializer()
     {
         Settings.BinarySerializer = new cx.BinarySerializer.BinarySerializer();
+        return this;
+    }
+
+    /// <summary>
+    ///     Fallback on db if the caching provider (redis) is down.
+    /// </summary>
+    public EFCoreCacheOptions UseDbCallsIfCachingProviderIsDown(TimeSpan nextAvailabilityCheck)
+    {
+        Settings.UseDbCallsIfCachingProviderIsDown = true;
+        Settings.NextCacheServerAvailabilityCheck = nextAvailabilityCheck;
         return this;
     }
 }

@@ -14,11 +14,6 @@ namespace EFCoreCache
         public Type? HashProvider { get; set; }
 
         /// <summary>
-        ///     Selected caching provider name
-        /// </summary>
-        public string? ProviderName { get; set; }
-
-        /// <summary>
         ///     This option will let you to choose a different redis database for your current tenant.
         ///     <![CDATA[ Such as: (serviceProvider, cacheKey) => "redis-db-" + serviceProvider.GetRequiredService<IHttpContextAccesor>().HttpContext.Request.Headers["tenant-id"]; ]]>
         /// </summary>
@@ -85,5 +80,15 @@ namespace EFCoreCache
         /// </summary>
         public Predicate<(string CommandText, object Value)>? SkipCachingResults { set; get; }
         public BinarySerializer? BinarySerializer { get; set; }
+
+        /// <summary>
+        ///     Fallback on db if the caching provider (redis) is down.
+        /// </summary>
+        public bool UseDbCallsIfCachingProviderIsDown { set; get; }
+
+        /// <summary>
+        ///     The cache server's availability check interval value.
+        /// </summary>
+        public TimeSpan NextCacheServerAvailabilityCheck { set; get; } = TimeSpan.FromMinutes(1);
     }
 }

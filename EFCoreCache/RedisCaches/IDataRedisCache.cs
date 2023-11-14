@@ -8,4 +8,5 @@ public interface IDataRedisCache : IDistributedCache
     void InvalidateSets(IEnumerable<string> entitySets);
     void InvalidateItem(string key);
     void ClearAllCache(string? pattern);
+    (bool, string) GetStatus();
 }
