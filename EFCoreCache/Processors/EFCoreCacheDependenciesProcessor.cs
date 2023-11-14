@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 namespace EFCoreCache.Processors;
 public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcessor
 {
-    private readonly IEFCoreCacheKeyPrefixProvider _cacheKeyPrefixProvider;
+    ////private readonly IEFCoreCacheKeyPrefixProvider _cacheKeyPrefixProvider;
     private readonly IDataRedisCache _cacheServiceProvider;
     private readonly EFCoreCacheSettings _cacheSettings;
     private readonly ILogger<EFCoreCacheDependenciesProcessor> _dependenciesProcessorLogger;
@@ -24,14 +24,13 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
         ILogger<EFCoreCacheDependenciesProcessor> dependenciesProcessorLogger,
         IDataRedisCache cacheServiceProvider,
         IEFCoreSqlCommandsProcessor sqlCommandsProcessor,
-        IOptions<EFCoreCacheSettings> cacheSettings,
-        IEFCoreCacheKeyPrefixProvider cacheKeyPrefixProvider)
+        IOptions<EFCoreCacheSettings> cacheSettings)
     {
         _logger = logger;
         _dependenciesProcessorLogger = dependenciesProcessorLogger;
         _cacheServiceProvider = cacheServiceProvider;
         _sqlCommandsProcessor = sqlCommandsProcessor;
-        _cacheKeyPrefixProvider = cacheKeyPrefixProvider;
+        ////_cacheKeyPrefixProvider = cacheKeyPrefixProvider;
 
         if (cacheSettings == null)
         {
@@ -98,7 +97,7 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
 
         LogProcess(tableNames, textsInsideSquareBrackets, cacheDependencies);
         ////return PrefixCacheDependencies(cacheDependencies);
-        return cacheDependencies ?? new SortedSet<string>();
+        return cacheDependencies;
     }
 
     /// <summary>
@@ -137,29 +136,27 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
     private void LogProcess(SortedSet<string> tableNames, SortedSet<string> textsInsideSquareBrackets,
                             SortedSet<string>? cacheDependencies)
     {
-        if (_logger.IsLoggerEnabled)
-        {
-            _dependenciesProcessorLogger
-                .LogDebug("ContextTableNames: {Names}, PossibleQueryTableNames: {Texts} -> CacheDependencies: {Dependencies}.",
-                          string.Join(", ", tableNames),
-                          string.Join(", ", cacheDependencies ?? new SortedSet<string>(StringComparer.Ordinal)),
-                          string.Join(", ", textsInsideSquareBrackets));
-        }
+        if (!_logger.IsLoggerEnabled) return;
+        _dependenciesProcessorLogger
+                     .LogDebug("ContextTableNames: {Names}, PossibleQueryTableNames: {Texts} -> CacheDependencies: {Dependencies}.",
+                      string.Join(", ", tableNames),
+                      string.Join(", ", cacheDependencies ?? new SortedSet<string>(StringComparer.Ordinal)),
+                      string.Join(", ", textsInsideSquareBrackets));
     }
 
     private bool ShouldSkipCacheInvalidationCommands(string commandText) =>
         _cacheSettings.SkipCacheInvalidationCommands != null &&
         _cacheSettings.SkipCacheInvalidationCommands(commandText);
 
-    private SortedSet<string> PrefixCacheDependencies(SortedSet<string>? cacheDependencies)
-    {
-        if (cacheDependencies is null)
-        {
-            return new SortedSet<string>(StringComparer.Ordinal);
-        }
+    ////private SortedSet<string> PrefixCacheDependencies(SortedSet<string>? cacheDependencies)
+    ////{
+    ////    if (cacheDependencies is null)
+    ////    {
+    ////        return new SortedSet<string>(StringComparer.Ordinal);
+    ////    }
 
-        var cacheKeyPrefix = _cacheKeyPrefixProvider.GetCacheKeyPrefix();
-        return new SortedSet<string>(cacheDependencies.Select(x => $"{cacheKeyPrefix}{x}"),
-                                     StringComparer.OrdinalIgnoreCase);
-    }
+    ////    var cacheKeyPrefix = _cacheKeyPrefixProvider.GetCacheKeyPrefix();
+    ////    return new SortedSet<string>(cacheDependencies.Select(x => $"{cacheKeyPrefix}{x}"),
+    ////                                 StringComparer.OrdinalIgnoreCase);
+    ////}
 }

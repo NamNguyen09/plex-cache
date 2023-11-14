@@ -1,9 +1,9 @@
 ﻿using System.Globalization;
+using cx.BinarySerializer.EFCache.Tables;
 using EFCoreCache.CacheQueriesOptions;
 using EFCoreCache.Enums;
 using EFCoreCache.Extensions;
 using EFCoreCache.Interfaces;
-using EFCoreCache.Tables;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 

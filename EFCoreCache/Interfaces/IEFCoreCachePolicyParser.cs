@@ -1,5 +1,5 @@
-﻿using EFCoreCache.CachePolicies;
-using EFCoreCache.Tables;
+﻿using cx.BinarySerializer.EFCache.Tables;
+using EFCoreCache.CachePolicies;
 
 namespace EFCoreCache.Interfaces;
 public interface IEFCoreCachePolicyParser

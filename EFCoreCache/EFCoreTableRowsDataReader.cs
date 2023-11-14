@@ -4,8 +4,9 @@ using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using cx.BinarySerializer.EFCache.Tables;
 
-namespace EFCoreCache.Tables;
+namespace EFCoreCache;
 public class EFCoreTableRowsDataReader : DbDataReader
 {
     private static readonly Type LongType = typeof(long);

@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using cx.BinarySerializer.EFCache;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -22,8 +23,6 @@ public class DataRedisCache : IDataRedisCache
             throw new ArgumentNullException(nameof(cacheSettings));
         }
 
-        ////_connectionMultiplexer = ConnectionMultiplexer.Connect(cacheSettings.Value.RedisConnectionString);
-        ////_redisDatabase = _connectionMultiplexer.GetDatabase();
         _cacheSettings = cacheSettings.Value;
         _logger = logger;
         SetConfiguration(cacheSettings.Value.RedisConnectionString);
@@ -65,8 +64,20 @@ public class DataRedisCache : IDataRedisCache
             var cachedData = _redisDatabase.StringGet(hashedKey);
             if (!string.IsNullOrEmpty(cachedData))
             {
-                var entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
-                value = entry;
+                CacheEntry? entry;
+                if (_cacheSettings.BinarySerializer == null)
+                {
+                    entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
+                    value = entry == null ? null : entry.Value;
+                    return true;
+                }
+
+                if (!_cacheSettings.BinarySerializer.TryDeserialize<CacheEntry>(cachedData, out entry))
+                {
+                    entry = null;
+                }
+
+                value = entry == null ? null : entry.Value;
                 return true;
             }
             return false;
@@ -101,8 +112,15 @@ public class DataRedisCache : IDataRedisCache
             }
 
             var cacheEntry = new CacheEntry(value, entitySets);
-            var data = JsonConvert.SerializeObject(cacheEntry);
-            _redisDatabase.StringSetAsync(hashedKey, data, expiration);
+            if (_cacheSettings.BinarySerializer == null)
+            {
+                string? strData = JsonConvert.SerializeObject(cacheEntry);
+                _redisDatabase.StringSetAsync(hashedKey, strData, expiration);
+                return;
+            }
+
+            var byteData = _cacheSettings.BinarySerializer.Serialize(cacheEntry);
+            _redisDatabase.StringSetAsync(hashedKey, byteData, expiration);
         }
         catch (Exception ex)
         {
@@ -256,8 +274,17 @@ public class DataRedisCache : IDataRedisCache
         var (hashed, hashedKey) = GetHashKey(key);
         try
         {
-            var data = _redisDatabase.StringGet(hashedKey);
-            CacheEntry? entry = JsonConvert.DeserializeObject<CacheEntry>(data);
+            var cachedData = _redisDatabase.StringGet(hashedKey);
+            CacheEntry? entry;
+            if (_cacheSettings.BinarySerializer == null)
+            {
+                entry = JsonConvert.DeserializeObject<CacheEntry>(cachedData);
+            }
+            else if (!_cacheSettings.BinarySerializer.TryDeserialize<CacheEntry>(cachedData, out entry))
+            {
+                entry = null;
+            }
+
             if (entry == null) return;
             _redisDatabase.KeyDeleteAsync(hashedKey);
             foreach (var set in entry.EntitySets)

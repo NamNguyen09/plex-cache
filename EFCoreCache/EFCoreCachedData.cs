@@ -1,5 +1,5 @@
 ﻿using System.Runtime.Serialization;
-using EFCoreCache.Tables;
+using cx.BinarySerializer.EFCache.Tables;
 
 namespace EFCoreCache;
 /// <summary>

@@ -293,4 +293,9 @@ public class EFCoreCacheOptions
         };
         return this;
     }
+    public EFCoreCacheOptions UseBinarySerializer()
+    {
+        Settings.BinarySerializer = new cx.BinarySerializer.BinarySerializer();
+        return this;
+    }
 }

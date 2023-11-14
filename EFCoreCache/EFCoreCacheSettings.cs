@@ -1,4 +1,5 @@
-﻿using EFCoreCache.CacheQueriesOptions;
+﻿using cx.BinarySerializer;
+using EFCoreCache.CacheQueriesOptions;
 
 namespace EFCoreCache
 {
@@ -83,5 +84,6 @@ namespace EFCoreCache
         ///     Here you can decide based on the correct executing result, should we cache this result or not?
         /// </summary>
         public Predicate<(string CommandText, object Value)>? SkipCachingResults { set; get; }
+        public BinarySerializer? BinarySerializer { get; set; }
     }
 }

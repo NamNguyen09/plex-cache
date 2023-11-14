@@ -1,4 +1,4 @@
-﻿using EFCoreCache.Tables;
+﻿using cx.BinarySerializer.EFCache.Tables;
 using Microsoft.EntityFrameworkCore;
 
 namespace EFCoreCache.Interfaces;

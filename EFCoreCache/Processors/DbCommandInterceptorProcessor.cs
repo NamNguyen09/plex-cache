@@ -2,10 +2,11 @@
 using System.Data.Common;
 using System.Globalization;
 using System.Text;
+using cx.BinarySerializer.EFCache;
+using cx.BinarySerializer.EFCache.Tables;
 using EFCoreCache.CachePolicies;
 using EFCoreCache.Interfaces;
 using EFCoreCache.RedisCaches;
-using EFCoreCache.Tables;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Distributed;
@@ -195,15 +196,16 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
         if (cacheValue == null) return result;
 
         EFCoreCachedData? cacheResult = new EFCoreCachedData { IsNull = true };
-        var cacheEntryValue = ((CacheEntry)cacheValue).Value;
-        ////if (cacheEntryValue != null && cacheEntryValue.GetType() == typeof(JObject))
-        ////{
-        ////    cacheResult = JsonConvert.DeserializeObject<EFCoreCachedData>(Convert.ToString(cacheEntryValue) ?? "") 
-        ///                                                     ?? new EFCoreCachedData { IsNull = true };
-        ////}
-        if (cacheEntryValue != null && cacheEntryValue.GetType() == typeof(EFCoreCachedData))
+        if (cacheValue != null
+            && cacheValue.GetType() == typeof(JObject))
         {
-            cacheResult = (EFCoreCachedData)cacheEntryValue;
+            cacheResult = JsonConvert.DeserializeObject<EFCoreCachedData>(Convert.ToString(cacheValue) ?? "")
+                                                           ?? new EFCoreCachedData { IsNull = true };
+        }
+        else if (cacheValue != null
+            && cacheValue.GetType() == typeof(EFCoreCachedData))
+        {
+            cacheResult = (EFCoreCachedData)cacheValue;
         }
 
         if (result is InterceptionResult<DbDataReader>)

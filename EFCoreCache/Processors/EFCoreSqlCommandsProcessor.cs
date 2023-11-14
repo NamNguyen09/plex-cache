@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Reflection;
+using cx.BinarySerializer.EFCache.Tables;
 using EFCoreCache.Interfaces;
-using EFCoreCache.Tables;
 using Microsoft.EntityFrameworkCore;
 
 namespace EFCoreCache.Processors;
