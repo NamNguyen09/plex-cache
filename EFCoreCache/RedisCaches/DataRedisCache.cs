@@ -285,8 +285,8 @@ public class DataRedisCache : IDataRedisCache
                 entry = null;
             }
 
+            if (cachedData.HasValue) _redisDatabase.KeyDeleteAsync(hashedKey);
             if (entry == null) return;
-            _redisDatabase.KeyDeleteAsync(hashedKey);
             foreach (var set in entry.EntitySets)
             {
                 _redisDatabase.SetRemoveAsync(AddCacheQualifier(set), hashedKey);
