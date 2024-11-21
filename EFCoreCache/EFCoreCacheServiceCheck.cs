@@ -1,5 +1,4 @@
 ﻿using EFCoreCache.Interfaces;
-using EFCoreCache.RedisCaches;
 using Microsoft.Extensions.Options;
 
 namespace EFCoreCache
@@ -7,7 +6,7 @@ namespace EFCoreCache
     public class EFCoreCacheServiceCheck : IEFCoreCacheServiceCheck
     {
         private readonly EFCoreCacheSettings _cacheSettings;
-        private readonly IDataRedisCache _cacheServiceProvider;
+        private readonly IEFCoreCacheServiceProvider _cacheServiceProvider;
 
         private bool? _isCacheServerAvailable;
         private DateTime? _lastCheckTime;
@@ -16,7 +15,7 @@ namespace EFCoreCache
         ///     Is the configured cache provider online?
         /// </summary>
         public EFCoreCacheServiceCheck(IOptions<EFCoreCacheSettings> cacheSettings,
-                                   IDataRedisCache cacheServiceProvider)
+                                   IEFCoreCacheServiceProvider cacheServiceProvider)
         {
             if (cacheSettings == null)
             {

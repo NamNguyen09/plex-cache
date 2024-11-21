@@ -14,12 +14,6 @@ namespace EFCoreCache
         public Type? HashProvider { get; set; }
 
         /// <summary>
-        ///     This option will let you to choose a different redis database for your current tenant.
-        ///     <![CDATA[ Such as: (serviceProvider, cacheKey) => "redis-db-" + serviceProvider.GetRequiredService<IHttpContextAccesor>().HttpContext.Request.Headers["tenant-id"]; ]]>
-        /// </summary>
-        public Func<IServiceProvider, EFCoreCacheKey?, string>? CacheProviderName { set; get; }
-
-        /// <summary>
         ///     Gets or sets the cache key prefix.
         ///     Its default value is `EF_`.
         /// </summary>

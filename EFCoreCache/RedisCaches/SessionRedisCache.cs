@@ -15,7 +15,7 @@ public class SessionRedisCache : IDistributedCache
         _options = options;
     }
 
-    public byte[] Get(string key)
+    public byte[]? Get(string key)
     {
         return _redisDatabase.StringGet(GetPrefixedKey(key));
     }

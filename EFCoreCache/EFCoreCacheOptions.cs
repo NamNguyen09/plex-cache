@@ -101,7 +101,7 @@ public class EFCoreCacheOptions
     ///     You can introduce a custom IEFCacheServiceProvider to be used as the CacheProvider.
     /// </summary>
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
-    public EFCoreCacheOptions UseRedisCacheProvider<T>(string redisConnectionString) where T : IDistributedCache
+    public EFCoreCacheOptions UseRedisCacheProvider<T>(string redisConnectionString) where T : IEFCoreCacheServiceProvider
     {
         Settings.CacheProvider = typeof(T);
         Settings.RedisConnectionString = redisConnectionString;
@@ -117,7 +117,7 @@ public class EFCoreCacheOptions
     /// <typeparam name="T">Implements IEFCacheServiceProvider</typeparam>
     public EFCoreCacheOptions UseRedisCacheProvider<T>(CacheExpirationMode expirationMode,
                                                        TimeSpan timeout,
-                                                       string redisConnectionString) where T : IDistributedCache
+                                                       string redisConnectionString) where T : IEFCoreCacheServiceProvider
     {
         Settings.CacheProvider = typeof(T);
         Settings.RedisConnectionString = redisConnectionString;

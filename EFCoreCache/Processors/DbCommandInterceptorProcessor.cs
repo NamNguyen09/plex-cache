@@ -5,7 +5,6 @@ using System.Text;
 using cx.BinarySerializer.EFCache.Tables;
 using EFCoreCache.CachePolicies;
 using EFCoreCache.Interfaces;
-using EFCoreCache.RedisCaches;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Distributed;
@@ -19,7 +18,7 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
 {
     private readonly IEFCoreCacheDependenciesProcessor _cacheDependenciesProcessor;
     private readonly IEFCoreCachePolicyParser _cachePolicyParser;
-    private readonly IDataRedisCache _cacheService;
+    private readonly IEFCoreCacheServiceProvider _cacheService;
     private readonly IEFCoreCacheServiceCheck _cacheServiceCheck;
     private readonly EFCoreCacheSettings _cacheSettings;
     private readonly ILogger<DbCommandInterceptorProcessor> _interceptorProcessorLogger;
@@ -31,7 +30,7 @@ public class DbCommandInterceptorProcessor : IDbCommandInterceptorProcessor
     /// </summary>
     public DbCommandInterceptorProcessor(IEFCoreCacheDependenciesProcessor cacheDependenciesProcessor,
                                         IEFCoreCachePolicyParser cachePolicyParser,
-                                        IDataRedisCache cacheService,
+                                        IEFCoreCacheServiceProvider cacheService,
                                         IEFCoreCacheServiceCheck cacheServiceCheck,
                                         IOptions<EFCoreCacheSettings> cacheSettings,
                                         ILogger<DbCommandInterceptorProcessor> interceptorProcessorLogger,

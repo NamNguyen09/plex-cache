@@ -1,7 +1,6 @@
 ﻿using System.Data.Common;
 using EFCoreCache.CachePolicies;
 using EFCoreCache.Interfaces;
-using EFCoreCache.RedisCaches;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,7 +9,7 @@ namespace EFCoreCache.Processors;
 public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcessor
 {
     ////private readonly IEFCoreCacheKeyPrefixProvider _cacheKeyPrefixProvider;
-    private readonly IDataRedisCache _cacheServiceProvider;
+    private readonly IEFCoreCacheServiceProvider _cacheServiceProvider;
     private readonly EFCoreCacheSettings _cacheSettings;
     private readonly ILogger<EFCoreCacheDependenciesProcessor> _dependenciesProcessorLogger;
     private readonly IEFCoreDebugLogger _logger;
@@ -22,7 +21,7 @@ public class EFCoreCacheDependenciesProcessor : IEFCoreCacheDependenciesProcesso
     public EFCoreCacheDependenciesProcessor(
         IEFCoreDebugLogger logger,
         ILogger<EFCoreCacheDependenciesProcessor> dependenciesProcessorLogger,
-        IDataRedisCache cacheServiceProvider,
+        IEFCoreCacheServiceProvider cacheServiceProvider,
         IEFCoreSqlCommandsProcessor sqlCommandsProcessor,
         IOptions<EFCoreCacheSettings> cacheSettings)
     {
